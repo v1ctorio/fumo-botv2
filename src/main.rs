@@ -33,7 +33,7 @@ lazy_static! {
         .expect("FUMOS_CHANNEL_ID NOT SET")
         .parse()
         .expect("FUMOS_CHANNEL_ID is not a valid Channel ID");
-    static ref USERS_IN_BLACKLIST: Vec<UserId> = var("USERSINBLACKLIST")
+    static ref USERS_IN_BLACKLIST: Vec<UserId> = var("USERS_IN_BLACKLIST")
         .expect("USERSINBLACKLIST must be set")
         .split(',')
         .map(|s| s.parse().expect("Invalid user ID in USERSINBLACKLIST"))
