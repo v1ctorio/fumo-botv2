@@ -20,6 +20,14 @@ pub struct Data {
     //    votes: Mutex<HashMap<String, u32>>,
 }
 
+#[derive(Debug, poise::Modal)]
+struct MoreInfoModal {
+    credit: Option<String>,
+    source: Option<String>,
+    caption: Option<String>,
+    featured: Option<String>, // plushie featured in the image
+}
+
 lazy_static! {
     static ref FUMOS_CHANNEL_ID: ChannelId = var("FUMOS_CHANNEL_ID")
         .expect("FUMOS_CHANNEL_ID NOT SET")
@@ -132,6 +140,7 @@ async fn event_handler(
                     }
                     "add_info" => {
                         todo!("Handle add info response")
+                        poise::execute_modal_on_component_interaction::<MoreInfoModal>(ctx, component, None, None)
                     }
                     _ => {}
                 }
