@@ -2,8 +2,10 @@
 
 mod commands;
 
+use ::serenity::all::{ChannelId, CreateButton, CreateMessage, UserId};
 use dotenv::dotenv;
 use env_logger;
+use lazy_static::lazy_static;
 use poise::serenity_prelude as serenity;
 use std::{
     collections::HashMap,
@@ -18,7 +20,20 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 // Custom user data passed to all command functions
 pub struct Data {
-    votes: Mutex<HashMap<String, u32>>,
+    //    votes: Mutex<HashMap<String, u32>>,
+}
+
+lazy_static! {
+    static ref FUMOS_CHANNEL_ID: ChannelId = var("FUMOS_CHANNEL_ID")
+        .expect("FUMOS_CHANNEL_ID NOT SET")
+        .parse()
+        .expect("FUMOS_CHANNEL_ID is not a valid Channel ID");
+    static ref USERS_IN_BLACKLIST: Vec<UserId> = var("USERSINBLACKLIST")
+        .expect("USERSINBLACKLIST must be set")
+        .split(',')
+        .map(|s| s.parse().expect("Invalid user ID in USERSINBLACKLIST"))
+        .collect();
+    static ref DISCORD_TOKEN: String = var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
@@ -38,16 +53,50 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     }
 }
 
+async fn event_handler(
+    ctx: &serenity::Context,
+    event: &serenity::FullEvent,
+    _framework: poise::FrameworkContext<'_, Data, Error>,
+    data: &Data,
+) -> Result<(), Error> {
+    match event {
+        serenity::FullEvent::Ready { data_about_bot, .. } => {
+            println!("Logged in as {}", data_about_bot.user.name);
+        }
+        serenity::FullEvent::Message { new_message: msg } => {
+            if msg.author.bot {
+                return Ok(());
+            }
+            if (msg.channel_id == *FUMOS_CHANNEL_ID) {
+                if msg.attachments.len() == 0 {
+                    msg.reply(ctx, format!("Please attach a fumo image to your message"));
+                    return Ok(());
+                }
+                let returnMsg = CreateMessage::new()
+                    .content("Fumo submission succesfully sent to review")
+                    .button(
+                        CreateButton::new("approve")
+                            .label("Approve Fumo")
+                            .style(serenity::ButtonStyle::Primary),
+                    );
+
+                return Ok(());
+            }
+            if msg.content.to_lowercase() == "ping" && msg.author.id != ctx.cache.current_user().id
+            {
+                msg.reply(ctx, format!("Pong!!!"));
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
     dotenv().ok();
-    let USERS_IN_BLACKLIST: String = var("USERSINBLACKLIST").expect("USERSINBLACKLIST must be set");
 
-    let USERS_IN_BLACKLIST: Vec<u64> = USERS_IN_BLACKLIST
-        .split(',')
-        .map(|s| s.parse().expect("Invalid user ID in USERSINBLACKLIST"))
-        .collect();
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
@@ -77,7 +126,7 @@ async fn main() {
         // Every command invocation must pass this check to continue execution
         command_check: Some(|ctx| {
             Box::pin(async move {
-                if USERS_IN_BLACKLIST.contains(ctx.author.id) {
+                if (*USERS_IN_BLACKLIST).contains(&ctx.author().id) {
                     return Ok(false);
                 }
                 if false {
@@ -89,14 +138,8 @@ async fn main() {
         // Enforce command checks even for owners (enforced by default)
         // Set to true to bypass checks, which is useful for testing
         skip_checks_for_owners: false,
-        event_handler: |_ctx, event, _framework, _data| {
-            Box::pin(async move {
-                println!(
-                    "Got an event in event handler: {:?}",
-                    event.snake_case_name()
-                );
-                Ok(())
-            })
+        event_handler: |ctx, event, framework, data| {
+            Box::pin(event_handler(ctx, event, framework, data))
         },
         ..Default::default()
     };
@@ -106,9 +149,7 @@ async fn main() {
             Box::pin(async move {
                 println!("Logged in as {}", _ready.user.name);
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data {
-                    votes: Mutex::new(HashMap::new()),
-                })
+                Ok(Data {})
             })
         })
         .options(options)
