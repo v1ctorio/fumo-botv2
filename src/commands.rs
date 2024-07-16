@@ -53,30 +53,30 @@ pub async fn fumo(
     ctx: Context<'_>,
     #[description = "The id of the fumo you want to search for"] fumo: String,
 ) -> Result<(), Error> {
-    let response = CreateReply::default().embed(
-        serenity::CreateEmbed::new()
-            .title("Fumo [#ID]")
-            .description("[Caption if present]")
-            .image("[url]")
-            .footer(CreateEmbedFooter::new("Source: [source]"))
-            .author(CreateEmbedAuthor::new("[credit]")),
-    );
-    ctx.send(response).await?;
+    let fumo = Fumo {
+        id: fumo.parse().expect("Invalid fumo ID"),
+        caption: Some("No caption".to_string()),
+        image: format!("https://fumoapi.herokuapp.com/fumo/{}", fumo),
+        source: Some("https://fumoapi.herokuapp.com".to_string()),
+        credit: Some("FumoAPI".to_string()),
+    };
+    let embed = generate_fumo_embed(fumo);
+    ctx.send(CreateReply::default().embed(embed)).await?;
     todo!("Retrieve fumo from the fumo-API");
     Ok(())
 }
 
 #[poise::command(prefix_command, slash_command)]
 pub async fn random(ctx: Context<'_>) -> Result<(), Error> {
-    let response = CreateReply::default().embed(
-        serenity::CreateEmbed::new()
-            .title("Fumo [#ID]")
-            .description("[Caption if present]")
-            .image("[url]")
-            .footer(CreateEmbedFooter::new("Source: [source]"))
-            .author(CreateEmbedAuthor::new("[credit]")),
-    );
-    ctx.send(response).await?;
+    let fumo = Fumo {
+        id: 0,
+        caption: Some("No caption".to_string()),
+        image: "https://fumoapi.herokuapp.com/fumo/0".to_string(),
+        source: Some("https://fumoapi.herokuapp.com".to_string()),
+        credit: Some("FumoAPI".to_string()),
+    };
+    let embed = generate_fumo_embed(fumo);
+    ctx.send(CreateReply::default().embed(embed)).await?;
     todo!("Retrieve random fumo from the fumo-API");
     Ok(())
 }
