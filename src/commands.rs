@@ -1,5 +1,14 @@
 use crate::{Context, Error};
-use poise::serenity_prelude as serenity;
+use ::serenity::all::{CreateEmbedAuthor, CreateEmbedFooter};
+use poise::{serenity_prelude as serenity, CreateReply};
+
+struct Fumo {
+    id: u64,
+    caption: Option<String>,
+    image: String,
+    source: Option<String>,
+    credit: Option<String>,
+}
 
 /// Show this help menu
 #[poise::command(prefix_command, track_edits, slash_command)]
@@ -38,4 +47,50 @@ pub async fn hello(
     let response = format!("Hello chat how you doin!");
     ctx.say(response).await?;
     Ok(())
+}
+#[poise::command(prefix_command, slash_command)]
+pub async fn fumo(
+    ctx: Context<'_>,
+    #[description = "The id of the fumo you want to search for"] fumo: String,
+) -> Result<(), Error> {
+    let response = CreateReply::default().embed(
+        serenity::CreateEmbed::new()
+            .title("Fumo [#ID]")
+            .description("[Caption if present]")
+            .image("[url]")
+            .footer(CreateEmbedFooter::new("Source: [source]"))
+            .author(CreateEmbedAuthor::new("[credit]")),
+    );
+    ctx.send(response).await?;
+    todo!("Retrieve fumo from the fumo-API");
+    Ok(())
+}
+
+#[poise::command(prefix_command, slash_command)]
+pub async fn random(ctx: Context<'_>) -> Result<(), Error> {
+    let response = CreateReply::default().embed(
+        serenity::CreateEmbed::new()
+            .title("Fumo [#ID]")
+            .description("[Caption if present]")
+            .image("[url]")
+            .footer(CreateEmbedFooter::new("Source: [source]"))
+            .author(CreateEmbedAuthor::new("[credit]")),
+    );
+    ctx.send(response).await?;
+    todo!("Retrieve random fumo from the fumo-API");
+    Ok(())
+}
+
+pub fn generate_fumo_embed(fumo: Fumo) -> serenity::CreateEmbed {
+    serenity::CreateEmbed::new()
+        .title(format!("Fumo #{}", fumo.id))
+        .description(fumo.caption.unwrap_or_else(|| "No caption".to_string()))
+        .image(fumo.image)
+        .footer(CreateEmbedFooter::new(format!(
+            "Source: {}",
+            fumo.source.unwrap_or_else(|| "Unknown".to_string())
+        )))
+        .author(CreateEmbedAuthor::new(
+            fumo.credit.unwrap_or_else(|| "Unknown".to_string()),
+        ))
 }

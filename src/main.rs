@@ -3,7 +3,7 @@
 mod commands;
 
 use ::serenity::all::{
-    ChannelId, ComponentType, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId,
+    ChannelId, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId,
 };
 use dotenv::dotenv;
 use env_logger;
@@ -20,6 +20,14 @@ pub struct Data {
     //    votes: Mutex<HashMap<String, u32>>,
 }
 
+#[derive(Debug, poise::Modal)]
+struct MoreInfoModal {
+    credit: Option<String>,
+    source: Option<String>,
+    caption: Option<String>,
+    featured: Option<String>, // plushie featured in the image
+}
+
 lazy_static! {
     static ref FUMOS_CHANNEL_ID: ChannelId = var("FUMOS_CHANNEL_ID")
         .expect("FUMOS_CHANNEL_ID NOT SET")
@@ -30,7 +38,6 @@ lazy_static! {
         .split(',')
         .map(|s| s.parse().expect("Invalid user ID in USERSINBLACKLIST"))
         .collect();
-    static ref DISCORD_TOKEN: String = var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
@@ -109,7 +116,7 @@ async fn event_handler(
                                 ctx,
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
-                                        "Your <@{}> fumo submission has been approved 🎉.",
+                                        "<@{}> Your fumo submission has been approved 🎉.",
                                         old_msg.author.id.to_string()
                                     )),
                                 ),
@@ -120,10 +127,10 @@ async fn event_handler(
                     "reject" => {
                         component
                             .create_response(
-                                ctx,
+                                &ctx,
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
-                                        "Your <@{}> fumo submission has been denied 😟.",
+                                        "<@{}> Your fumo submission has been denied 😟.",
                                         old_msg.author.id.to_string()
                                     )),
                                 ),
@@ -131,7 +138,17 @@ async fn event_handler(
                             .await?;
                     }
                     "add_info" => {
-                        todo!("Handle add info response")
+                        let modal_response = poise::execute_modal_on_component_interaction::<
+                            MoreInfoModal,
+                        >(
+                            Box::new(ctx.clone()), component.clone(), None, None
+                        )
+                        .await?
+                        .ok_or("Couldnt parse modal successfully");
+
+                        #[rustfmt::skip]
+                        let MoreInfoModal {caption, credit, source, featured} = modal_response.unwrap();
+                        todo!("Handle modal response")
                     }
                     _ => {}
                 }
@@ -205,9 +222,10 @@ async fn main() {
         .options(options)
         .build();
 
-    let token = var("DISCORD_TOKEN").expect("Missing `DISCORD_TOKEN` ");
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
+
+    let token = std::env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
 
     let client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
