@@ -14,6 +14,7 @@ use mongodb::{
     Client as MongoClient, Collection as MongoCollection,
 };
 use poise::serenity_prelude as serenity;
+use serde::{Deserialize, Serialize};
 use std::{env::var, sync::Arc, time::Duration};
 
 // Types used by all command functions
@@ -22,7 +23,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 // Custom user data passed to all command functions
 pub struct Data {
-    fumos_collection: MongoCollection<Fumo>,
+    fumos_collection: MongoCollection<FumoDoc>,
 }
 
 #[derive(Debug, poise::Modal)]
@@ -31,6 +32,20 @@ struct MoreInfoModal {
     source: Option<String>,
     caption: Option<String>,
     featured: Option<String>, // plushie featured in the image
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FumoDoc {
+    _id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    caption: Option<String>,
+    image_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    credit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    featured: Option<String>,
 }
 
 lazy_static! {
@@ -130,7 +145,7 @@ async fn event_handler(
                                 ctx,
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
-                                        "<@{}> Your fumo submission has been approved 🎉.",
+                                        "<@{}> Your fumo submission has been approved 🎉. You can check it out with id `{}`",
                                         old_msg
                                             .referenced_message
                                             .as_ref()
@@ -139,12 +154,43 @@ async fn event_handler(
                                             )
                                             .author
                                             .id
+                                            .to_string(),
+                                        old_msg
+                                            .referenced_message
+                                            .as_ref()
+                                            .expect(
+                                                "No referenced message in fumo submission reply"
+                                            )
+                                            .id
                                             .to_string()
                                     )),
                                 ),
                             )
                             .await?;
-                        todo!()
+
+                        let fumo_to_create = Fumo {
+                            _id: old_msg
+                                .referenced_message
+                                .as_ref()
+                                .expect("No referenced message in fumo submission reply")
+                                .id
+                                .to_string(),
+                            caption: None,
+                            image: old_msg
+                                .referenced_message
+                                .as_ref()
+                                .expect("No referenced message in fumo submission reply")
+                                .attachments
+                                .first()
+                                .expect("No attachments in fumo submission reply")
+                                .url
+                                .clone(),
+                            source: None,
+                            credit: None,
+                            featured: None,
+                        };
+                        #[rustfmt::skip]
+                        add_fumo_to_db(&data.fumos_collection, fumo_to_create).await.expect("Failed to add fumo to db");
                     }
                     "reject" => {
                         component
@@ -275,9 +321,20 @@ fn upload_to_nosesisaid_cdn(image: &str) -> Result<String, Box<dyn std::error::E
     todo!("Upload image to nosesisaid cdn (r2 instance)");
 }
 async fn add_fumo_to_db(
-    fumos_collection: MongoCollection<Fumo>,
+    fumos_collection: &MongoCollection<FumoDoc>,
     fumo: Fumo,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let cdn_url = upload_to_nosesisaid_cdn(&fumo.image).expect("Failed to upload image to cdn");
+
+    let fumo = FumoDoc {
+        _id: fumo._id,
+        image_url: cdn_url,
+        caption: fumo.caption,
+        credit: fumo.credit,
+        source: fumo.source,
+        featured: fumo.featured,
+    };
+
     fumos_collection.insert_one(fumo).await?;
     Ok(())
 }

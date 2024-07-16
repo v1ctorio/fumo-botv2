@@ -1,17 +1,16 @@
 use crate::{Context, Error};
 use ::serenity::all::{CreateEmbedAuthor, CreateEmbedFooter};
 use poise::{serenity_prelude as serenity, CreateReply};
+use serde;
 use serde::{Deserialize, Serialize};
 
 pub struct Fumo {
-    _id: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    caption: Option<String>,
-    image: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    source: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    credit: Option<String>,
+    pub _id: String,
+    pub caption: Option<String>,
+    pub image: String,
+    pub source: Option<String>,
+    pub credit: Option<String>,
+    pub featured: Option<String>,
 }
 
 /// Show this help menu
@@ -63,6 +62,7 @@ pub async fn fumo(
         image: format!("https://fumoapi.herokuapp.com/fumo/{}", fumo),
         source: Some("https://fumoapi.herokuapp.com".to_string()),
         credit: Some("FumoAPI".to_string()),
+        featured: Some("Reimu".to_string()),
     };
     let embed = generate_fumo_embed(fumo);
     ctx.send(CreateReply::default().embed(embed)).await?;
@@ -73,11 +73,12 @@ pub async fn fumo(
 #[poise::command(prefix_command, slash_command)]
 pub async fn random(ctx: Context<'_>) -> Result<(), Error> {
     let fumo = Fumo {
-        _id: 0,
+        _id: "0".to_string(),
         caption: Some("No caption".to_string()),
         image: "https://fumoapi.herokuapp.com/fumo/0".to_string(),
         source: Some("https://fumoapi.herokuapp.com".to_string()),
         credit: Some("FumoAPI".to_string()),
+        featured: Some("Reimu".to_string()),
     };
     let embed = generate_fumo_embed(fumo);
     ctx.send(CreateReply::default().embed(embed)).await?;
