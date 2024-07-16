@@ -7,12 +7,7 @@ use dotenv::dotenv;
 use env_logger;
 use lazy_static::lazy_static;
 use poise::serenity_prelude as serenity;
-use std::{
-    collections::HashMap,
-    env::var,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{env::var, sync::Arc, time::Duration};
 
 // Types used by all command functions
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -67,24 +62,38 @@ async fn event_handler(
             if msg.author.bot {
                 return Ok(());
             }
-            if (msg.channel_id == *FUMOS_CHANNEL_ID) {
+            if msg.channel_id == *FUMOS_CHANNEL_ID {
                 if msg.attachments.len() == 0 {
-                    msg.reply(ctx, format!("Please attach a fumo image to your message"));
+                    msg.reply(ctx, format!("Please attach a fumo image to your message"))
+                        .await?;
                     return Ok(());
                 }
-                let returnMsg = CreateMessage::new()
-                    .content("Fumo submission succesfully sent to review")
+                let reply_msg = CreateMessage::new()
+                    .content(format!(
+                        "<@{}> Fumo submission succesfully sent to review",
+                        msg.author.id.to_string()
+                    ))
                     .button(
                         CreateButton::new("approve")
                             .label("Approve Fumo")
                             .style(serenity::ButtonStyle::Primary),
+                    )
+                    .button(
+                        CreateButton::new("reject")
+                            .label("Reject Fumo")
+                            .style(serenity::ButtonStyle::Danger),
+                    )
+                    .button(
+                        CreateButton::new("add_info")
+                            .style(serenity::ButtonStyle::Secondary)
+                            .label("Add Info about the submission"),
                     );
-
+                msg.channel_id.send_message(ctx, reply_msg).await?;
                 return Ok(());
             }
             if msg.content.to_lowercase() == "ping" && msg.author.id != ctx.cache.current_user().id
             {
-                msg.reply(ctx, format!("Pong!!!"));
+                msg.reply(ctx, format!("Pong!!!")).await?;
             }
         }
         _ => {}
@@ -100,7 +109,7 @@ async fn main() {
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
-        commands: vec![commands::help(), commands::vote(), commands::getvotes()],
+        commands: vec![commands::help(), commands::hello()],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(")".into()),
             edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
