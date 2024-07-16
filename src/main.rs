@@ -2,7 +2,9 @@
 
 mod commands;
 
-use ::serenity::all::{ChannelId, CreateButton, CreateMessage, UserId};
+use ::serenity::all::{
+    ChannelId, ComponentType, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId,
+};
 use dotenv::dotenv;
 use env_logger;
 use lazy_static::lazy_static;
@@ -95,6 +97,45 @@ async fn event_handler(
             {
                 msg.reply(ctx, format!("Pong!!!")).await?;
             }
+        }
+        serenity::FullEvent::InteractionCreate { interaction } => {
+            if interaction.as_message_component().is_some() {
+                let component = interaction.as_message_component().unwrap();
+                let old_msg = &component.message;
+                match component.data.custom_id.as_str() {
+                    "approve" => {
+                        component
+                            .create_response(
+                                ctx,
+                                serenity::CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new().content(format!(
+                                        "Your <@{}> fumo submission has been approved 🎉.",
+                                        old_msg.author.id.to_string()
+                                    )),
+                                ),
+                            )
+                            .await?;
+                        todo!("Handle successful fumo submission.")
+                    }
+                    "reject" => {
+                        component
+                            .create_response(
+                                ctx,
+                                serenity::CreateInteractionResponse::Message(
+                                    CreateInteractionResponseMessage::new().content(format!(
+                                        "Your <@{}> fumo submission has been denied 😟.",
+                                        old_msg.author.id.to_string()
+                                    )),
+                                ),
+                            )
+                            .await?;
+                    }
+                    "add_info" => {
+                        todo!("Handle add info response")
+                    }
+                    _ => {}
+                }
+            };
         }
         _ => {}
     }
