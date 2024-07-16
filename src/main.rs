@@ -5,9 +5,14 @@ mod commands;
 use ::serenity::all::{
     ChannelId, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId,
 };
+use commands::Fumo;
 use dotenv::dotenv;
 use env_logger;
 use lazy_static::lazy_static;
+use mongodb::{
+    bson::{doc, Bson, Document},
+    Client as MongoClient, Collection as MongoCollection,
+};
 use poise::serenity_prelude as serenity;
 use std::{env::var, sync::Arc, time::Duration};
 
@@ -17,7 +22,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 // Custom user data passed to all command functions
 pub struct Data {
-    //    votes: Mutex<HashMap<String, u32>>,
+    fumos_collection: MongoCollection<Fumo>,
 }
 
 #[derive(Debug, poise::Modal)]
@@ -139,7 +144,7 @@ async fn event_handler(
                                 ),
                             )
                             .await?;
-                        todo!("Handle successful fumo submission.")
+                        todo!()
                     }
                     "reject" => {
                         component
@@ -188,6 +193,12 @@ async fn event_handler(
 async fn main() {
     env_logger::init();
     dotenv().ok();
+
+    let MONGO_URI = std::env::var("MONGO_URI").expect("Expected a mongo uri in the environment");
+    let mongo = mongodb::Client::with_uri_str(MONGO_URI).await.unwrap();
+
+    let db = mongo.database("fumo");
+    let fumos_collection = db.collection("fumos");
 
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
@@ -241,7 +252,7 @@ async fn main() {
             Box::pin(async move {
                 println!("Logged in as {}", _ready.user.name);
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data {})
+                Ok(Data { fumos_collection })
             })
         })
         .options(options)
@@ -257,4 +268,16 @@ async fn main() {
         .await;
 
     client.unwrap().start().await.unwrap()
+}
+
+fn upload_to_nosesisaid_cdn(image: &str) -> Result<String, Box<dyn std::error::Error>> {
+    return Ok(String::from("https://cdn.nosesisaid.com/1234.png"));
+    todo!("Upload image to nosesisaid cdn (r2 instance)");
+}
+async fn add_fumo_to_db(
+    fumos_collection: MongoCollection<Fumo>,
+    fumo: Fumo,
+) -> Result<(), Box<dyn std::error::Error>> {
+    fumos_collection.insert_one(fumo).await?;
+    Ok(())
 }
