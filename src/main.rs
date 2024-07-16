@@ -96,7 +96,8 @@ async fn event_handler(
                         CreateButton::new("add_info")
                             .style(serenity::ButtonStyle::Secondary)
                             .label("Add Info about the submission"),
-                    );
+                    )
+                    .reference_message(msg);
                 msg.channel_id.send_message(ctx, reply_msg).await?;
                 return Ok(());
             }
@@ -111,13 +112,29 @@ async fn event_handler(
                 let old_msg = &component.message;
                 match component.data.custom_id.as_str() {
                     "approve" => {
+                        let submission_creator_id = old_msg
+                            .referenced_message
+                            .as_ref()
+                            .unwrap()
+                            .author
+                            .id
+                            .to_string();
+                        println!("{}", submission_creator_id);
                         component
                             .create_response(
                                 ctx,
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
                                         "<@{}> Your fumo submission has been approved 🎉.",
-                                        old_msg.author.id.to_string()
+                                        old_msg
+                                            .referenced_message
+                                            .as_ref()
+                                            .expect(
+                                                "No referenced message in fumo submission reply"
+                                            )
+                                            .author
+                                            .id
+                                            .to_string()
                                     )),
                                 ),
                             )
@@ -131,7 +148,15 @@ async fn event_handler(
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
                                         "<@{}> Your fumo submission has been denied 😟.",
-                                        old_msg.author.id.to_string()
+                                        old_msg
+                                            .referenced_message
+                                            .as_ref()
+                                            .expect(
+                                                "No referenced message in fumo submission reply"
+                                            )
+                                            .author
+                                            .id
+                                            .to_string()
                                     )),
                                 ),
                             )
