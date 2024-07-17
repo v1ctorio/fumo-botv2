@@ -243,7 +243,7 @@ async fn main() {
     let MONGO_URI = std::env::var("MONGO_URI").expect("Expected a mongo uri in the environment");
     let mongo = mongodb::Client::with_uri_str(MONGO_URI).await.unwrap();
 
-    let db = mongo.database("fumo");
+    let db = mongo.database("fumo-api");
     let fumos_collection = db.collection("fumos");
 
     // FrameworkOptions contains all of poise's configuration option in one struct
