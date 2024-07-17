@@ -47,8 +47,7 @@ pub struct SubmissionDoc {
     credit: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     featured: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    approved: Option<bool>,
+    approved: bool,
     discord_submitter_id: String,
     time_of_submission: i64,
 }
@@ -118,7 +117,7 @@ async fn event_handler(
                 }
                 let reply_msg = CreateMessage::new()
                     .content(format!(
-                        "<@{}> Fumo submission succesfully sent to review",
+                        "<@{}> Fumo submission succesfully sent to review \n -# Only the first media attachment is going to be considered",
                         msg.author.id.to_string()
                     ))
                     .button(
@@ -137,6 +136,23 @@ async fn event_handler(
                             .label("Add Info about the submission"),
                     )
                     .reference_message(msg);
+
+                let submission = SubmissionDoc {
+                    _id: msg.id.to_string(),
+                    image_url: msg.attachments[0].url.clone(),
+                    caption: None,
+                    source: None,
+                    credit: None,
+                    featured: None,
+                    approved: false,
+                    discord_submitter_id: msg.author.id.to_string(),
+                    time_of_submission: msg.timestamp.timestamp(),
+                };
+
+                data.submissions_collection
+                    .insert_one(submission)
+                    .await
+                    .expect("Failed to insert submission into database");
                 msg.channel_id.send_message(ctx, reply_msg).await?;
                 return Ok(());
             }
