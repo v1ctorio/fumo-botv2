@@ -2,4 +2,5 @@
 .env
 
 /fumoUploadScript/attachments.txt
+/fumoUploadScript/downloads
 /fumoUploadScript/node_modules

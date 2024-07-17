@@ -6,16 +6,16 @@ const { URL } = require('url');
 
 const urls = JSON.parse(fs.readFileSync('attachments.txt'))
 
-// urls.forEach(url => {
-//     console.log("Trying to download", url)
-//     const filename = url.split('/').pop();
-//     const file = fs.createWriteStream(`./downloads/${filename}`);
+urls.forEach(url => {
+    console.log("Trying to download", url)
+    const filename = getFileName(url);
+    const file = fs.createWriteStream(`./downloads/${filename}`);
     
-//     get(url, response => {
-//         response.pipe(file);
-//         console.log("Downloaded", url)
-//     })
-// });
+    get(url, response => {
+        response.pipe(file);
+        console.log("Downloaded", url)
+    })
+});
 
 function getFileName(url) {
     const parsed = new URL(url);
@@ -26,4 +26,3 @@ function getFileName(url) {
     return id+'.'+extension;
 }
 
-console.log(getFileName('https://cdn.discordapp.com/attachments/844262973043114044/844263000000000000/unknown.png'))
