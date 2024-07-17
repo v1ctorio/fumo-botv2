@@ -24,6 +24,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // Custom user data passed to all command functions
 pub struct Data {
     fumos_collection: MongoCollection<FumoDoc>,
+    submissions_collection: MongoCollection<SubmissionDoc>,
 }
 
 #[derive(Debug, poise::Modal)]
@@ -32,6 +33,24 @@ struct MoreInfoModal {
     source: Option<String>,
     caption: Option<String>,
     featured: Option<String>, // plushie featured in the image
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SubmissionDoc {
+    _id: String,
+    image_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    caption: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    credit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    featured: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    approved: Option<bool>,
+    discord_submitter_id: String,
+    time_of_submission: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -245,6 +264,7 @@ async fn main() {
 
     let db = mongo.database("fumo-api");
     let fumos_collection = db.collection("fumos");
+    let submissions_collection = db.collection("submissions");
 
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
@@ -298,7 +318,10 @@ async fn main() {
             Box::pin(async move {
                 println!("Logged in as {}", _ready.user.name);
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data { fumos_collection })
+                Ok(Data {
+                    fumos_collection,
+                    submissions_collection,
+                })
             })
         })
         .options(options)
