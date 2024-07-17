@@ -1,4 +1,5 @@
 /target
 .env
 
+/fumoUploadScript/attachments.txt
 /fumoUploadScript/node_modules
