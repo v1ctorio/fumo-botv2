@@ -3,7 +3,7 @@
 mod commands;
 
 use ::serenity::all::{
-    ChannelId, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId,
+    ChannelId, ComponentInteraction, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId
 };
 use commands::Fumo;
 use dotenv::dotenv;
@@ -48,6 +48,7 @@ pub struct SubmissionDoc {
     #[serde(skip_serializing_if = "Option::is_none")]
     featured: Option<String>,
     approved: bool,
+    discarted: bool,
     discord_submitter_id: String,
     time_of_submission: i64,
 }
@@ -145,6 +146,7 @@ async fn event_handler(
                     credit: None,
                     featured: None,
                     approved: false,
+                    discarted: false,
                     discord_submitter_id: msg.author.id.to_string(),
                     time_of_submission: msg.timestamp.timestamp(),
                 };
@@ -163,8 +165,9 @@ async fn event_handler(
         }
         serenity::FullEvent::InteractionCreate { interaction } => {
             if interaction.as_message_component().is_some() {
-                let component = interaction.as_message_component().unwrap();
-                let old_msg = &component.message;
+                let component= interaction.as_message_component().unwrap();
+                let mut component_copy: ComponentInteraction = component.clone();
+                let mut old_msg = component_copy.message;
                 match component.data.custom_id.as_str() {
                     "approve" => {
                         let submission_creator_id = old_msg
@@ -226,11 +229,47 @@ async fn event_handler(
                         };
                         #[rustfmt::skip]
                         add_fumo_to_db(&data.fumos_collection, fumo_to_create).await.expect("Failed to add fumo to db");
+                        data.submissions_collection
+                            .update_one(
+                                doc! {
+                                    "_id": old_msg
+                                        .referenced_message
+                                        .as_ref()
+                                        .expect("No referenced message in fumo submission reply")
+                                        .id
+                                        .to_string()
+                                },
+                                doc! {
+                                    "$set": {
+                                        "approved": true
+                                    }
+                                },
+                            )
+                            .await
+                            .expect("Error while giving fumo the approved flag");
                     }
                     "reject" => {
+                        data.fumos_collection
+                            .update_one(
+                                doc! {
+                                    "_id": old_msg
+                                        .referenced_message
+                                        .as_ref()
+                                        .expect("No referenced message in fumo submission reply")
+                                        .id
+                                        .to_string()
+                                },
+                                doc! {
+                                    "$set": {
+                                        "discarted": true
+                                    }
+                                },
+                            )
+                            .await
+                            .expect("Failed to reject fumo in db (add discarted flag)");
                         component
                             .create_response(
-                                &ctx,
+                                ctx,
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
                                         "<@{}> Your fumo submission has been denied 😟.",
@@ -249,6 +288,8 @@ async fn event_handler(
                             .await?;
                     }
                     "add_info" => {
+                        println!("{:?}", old_msg);
+
                         let modal_response = poise::execute_modal_on_component_interaction::<
                             MoreInfoModal,
                         >(
@@ -258,8 +299,23 @@ async fn event_handler(
                         .ok_or("Couldnt parse modal successfully");
 
                         #[rustfmt::skip]
-                        let MoreInfoModal {caption, credit, source, featured} = modal_response.unwrap();
-                        todo!("Handle modal response")
+                        let MoreInfoModal {caption, credit, source, featured} = &modal_response.unwrap();
+                        data.submissions_collection.update_one(doc!{
+                            "_id": old_msg.message_reference.as_ref().expect("No referenced message in fumo submission reply").message_id.unwrap().to_string()
+                        }, doc!{
+                            "$set": {
+                                "caption": caption,
+                                "credit": credit,
+                                "source": source,
+                                "featured": featured
+                            }
+                        },).await.expect("Failed to update submission with more info");
+
+                        old_msg.edit(
+                            ctx,
+                            //edit message to add a embed
+                            serenity::EditMessage::new().add_embed(serenity::CreateEmbed::new().description("More info succesfully added"))
+                        ).await.expect("Failed to edit message to add embed");
                     }
                     _ => {}
                 }
@@ -355,7 +411,7 @@ async fn main() {
     client.unwrap().start().await.unwrap()
 }
 
-fn upload_to_nosesisaid_cdn(image: &str) -> Result<String, Box<dyn std::error::Error>> {
+fn upload_to_nosesisaid_cdn(image: &String) -> Result<String, Box<dyn std::error::Error>> {
     return Ok(String::from("https://cdn.nosesisaid.com/1234.png"));
     todo!("Upload image to nosesisaid cdn (r2 instance)");
 }
