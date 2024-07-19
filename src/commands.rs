@@ -3,6 +3,7 @@ use ::serenity::all::{CreateEmbedAuthor, CreateEmbedFooter};
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde;
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 pub struct Fumo {
     pub _id: String,
@@ -56,17 +57,26 @@ pub async fn fumo(
     ctx: Context<'_>,
     #[description = "The id of the fumo you want to search for"] fumo: String,
 ) -> Result<(), Error> {
+    let data = ctx.data();
+    let client = data.web_client.clone();
+
+    let res = client.get(format!("{}/fumo/{}", data.fumo_api_endpoint, fumo));
+    let res = res.send().await.expect("Failed to retrieve fumo");
+
+    let fumo: serde_json::Value = res.json().await.expect("Failed to parse fumo");
+
+    println!("{:?}", fumo);
+
     let fumo = Fumo {
-        _id: fumo.parse().expect("Invalid fumo ID"),
-        caption: Some("No caption".to_string()),
-        image: format!("https://fumoapi.herokuapp.com/fumo/{}", fumo),
-        source: Some("https://fumoapi.herokuapp.com".to_string()),
-        credit: Some("FumoAPI".to_string()),
+        _id: fumo["_id"].to_string(),
+        caption: Some(fumo["caption"].to_string()),
+        image: fumo["url"].to_string(),
+        source: Some(fumo["source"].to_string()),
+        credit: Some(fumo["credit"].to_string()),
         featured: Some("Reimu".to_string()),
     };
     let embed = generate_fumo_embed(fumo);
     ctx.send(CreateReply::default().embed(embed)).await?;
-    todo!("Retrieve fumo from the fumo-API");
     Ok(())
 }
 

@@ -3,7 +3,8 @@
 mod commands;
 
 use ::serenity::all::{
-    ChannelId, ComponentInteraction, CreateButton, CreateInteractionResponseMessage, CreateMessage, UserId
+    ChannelId, ComponentInteraction, CreateButton, CreateInteractionResponseMessage, CreateMessage,
+    UserId,
 };
 use commands::Fumo;
 use dotenv::dotenv;
@@ -14,6 +15,7 @@ use mongodb::{
     Client as MongoClient, Collection as MongoCollection,
 };
 use poise::serenity_prelude as serenity;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::{env::var, sync::Arc, time::Duration};
 
@@ -25,6 +27,8 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 pub struct Data {
     fumos_collection: MongoCollection<FumoDoc>,
     submissions_collection: MongoCollection<SubmissionDoc>,
+    fumo_api_endpoint: Url,
+    web_client: reqwest::Client,
 }
 
 #[derive(Debug, poise::Modal)]
@@ -165,7 +169,7 @@ async fn event_handler(
         }
         serenity::FullEvent::InteractionCreate { interaction } => {
             if interaction.as_message_component().is_some() {
-                let component= interaction.as_message_component().unwrap();
+                let component = interaction.as_message_component().unwrap();
                 let mut component_copy: ComponentInteraction = component.clone();
                 let mut old_msg = component_copy.message;
                 match component.data.custom_id.as_str() {
@@ -311,11 +315,17 @@ async fn event_handler(
                             }
                         },).await.expect("Failed to update submission with more info");
 
-                        old_msg.edit(
-                            ctx,
-                            //edit message to add a embed
-                            serenity::EditMessage::new().add_embed(serenity::CreateEmbed::new().description("More info succesfully added"))
-                        ).await.expect("Failed to edit message to add embed");
+                        old_msg
+                            .edit(
+                                ctx,
+                                //edit message to add a embed
+                                serenity::EditMessage::new().add_embed(
+                                    serenity::CreateEmbed::new()
+                                        .description("More info succesfully added"),
+                                ),
+                            )
+                            .await
+                            .expect("Failed to edit message to add embed");
                     }
                     _ => {}
                 }
@@ -333,6 +343,11 @@ async fn main() {
 
     let MONGO_URI = std::env::var("MONGO_URI").expect("Expected a mongo uri in the environment");
     let mongo = mongodb::Client::with_uri_str(MONGO_URI).await.unwrap();
+    let fumo_api_endpoint = "http://localhost:6969";
+
+    let fumo_api_endpoint = reqwest::Url::parse(fumo_api_endpoint).unwrap();
+
+    let web_client = reqwest::Client::new();
 
     let db = mongo.database("fumo-api");
     let fumos_collection = db.collection("fumos");
@@ -341,7 +356,12 @@ async fn main() {
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
-        commands: vec![commands::help(), commands::hello()],
+        commands: vec![
+            commands::help(),
+            commands::hello(),
+            commands::fumo(),
+            commands::random(),
+        ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(")".into()),
             edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
@@ -393,6 +413,8 @@ async fn main() {
                 Ok(Data {
                     fumos_collection,
                     submissions_collection,
+                    web_client,
+                    fumo_api_endpoint,
                 })
             })
         })
