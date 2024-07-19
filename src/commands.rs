@@ -14,6 +14,16 @@ pub struct Fumo {
     pub featured: Option<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct APIFumo {
+    pub _id: String,
+    pub caption: Option<String>,
+    pub url: String,
+    pub source: Option<String>,
+    pub credit: Option<String>,
+    pub featured: Option<String>,
+}
+
 /// Show this help menu
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn help(
@@ -63,16 +73,16 @@ pub async fn fumo(
     let res = client.get(format!("{}/fumo/{}", data.fumo_api_endpoint, fumo));
     let res = res.send().await.expect("Failed to retrieve fumo");
 
-    let fumo: serde_json::Value = res.json().await.expect("Failed to parse fumo");
+    let fumo: APIFumo = res.json().await.expect("Failed to parse fumo");
 
     println!("{:?}", fumo.url.to_string());
 
     let fumo = Fumo {
-        _id: fumo["_id"].to_string(),
-        caption: Some(fumo["caption"].to_string()),
-        image: fumo["url"].to_string(),
-        source: Some(fumo["source"].to_string()),
-        credit: Some(fumo["credit"].to_string()),
+        _id: fumo._id.to_string(),
+        caption: fumo.caption,
+        image: fumo.url,
+        source: fumo.source,
+        credit: fumo.credit,
         featured: Some("Reimu".to_string()),
     };
     let embed = generate_fumo_embed(fumo);
