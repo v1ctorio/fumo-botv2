@@ -27,7 +27,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 pub struct Data {
     fumos_collection: MongoCollection<FumoDoc>,
     submissions_collection: MongoCollection<SubmissionDoc>,
-    fumo_api_endpoint: Url,
+    fumo_api_endpoint: String,
     web_client: reqwest::Client,
 }
 
@@ -343,9 +343,7 @@ async fn main() {
 
     let MONGO_URI = std::env::var("MONGO_URI").expect("Expected a mongo uri in the environment");
     let mongo = mongodb::Client::with_uri_str(MONGO_URI).await.unwrap();
-    let fumo_api_endpoint = "http://localhost:6969";
-
-    let fumo_api_endpoint = reqwest::Url::parse(fumo_api_endpoint).unwrap();
+    let fumo_api_endpoint = "http://localhost:6969".to_string();
 
     let web_client = reqwest::Client::new();
 

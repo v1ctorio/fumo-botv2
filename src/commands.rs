@@ -65,7 +65,7 @@ pub async fn fumo(
 
     let fumo: serde_json::Value = res.json().await.expect("Failed to parse fumo");
 
-    println!("{:?}", fumo);
+    println!("{:?}", fumo.url.to_string());
 
     let fumo = Fumo {
         _id: fumo["_id"].to_string(),
