@@ -92,24 +92,24 @@ pub async fn fumo(
 
 #[poise::command(prefix_command, slash_command)]
 pub async fn random(ctx: Context<'_>) -> Result<(), Error> {
-    // let randomFumo = reqwest::get("https://fumo-api.nosesisaid.com/random")
-    //     .await
-    //     .expect("Failed to retrieve random fumo")
-    //     .text()
-    //     .await
-    //     .expect("Failed to retrieve random fumo text?? idk how this happened")
-    //     .parse::<Fumo>();
+    let data = ctx.data();
+    let client = data.web_client.clone();
+
+    let res = client.get(format!("{}/random", data.fumo_api_endpoint));
+    let res = res.send().await.expect("Failed to retrieve fumo");
+
+    let fumo: APIFumo = res.json().await.expect("Failed to parse fumo");
+
     let fumo = Fumo {
-        _id: "0".to_string(),
-        caption: Some("No caption".to_string()),
-        image: "none".to_string(),
-        source: Some("https://fumoapi.herokuapp.com".to_string()),
-        credit: Some("FumoAPI".to_string()),
+        _id: fumo._id,
+        caption: fumo.caption,
+        image: fumo.url,
+        source: fumo.source,
+        credit: fumo.credit,
         featured: Some("Reimu".to_string()),
     };
     let embed = generate_fumo_embed(fumo);
     ctx.send(CreateReply::default().embed(embed)).await?;
-    todo!("Retrieve random fumo from the fumo-API");
     Ok(())
 }
 
