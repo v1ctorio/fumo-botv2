@@ -1,9 +1,11 @@
-use crate::{Context, Error};
+use crate::{Context, Error, FumoDoc};
 use ::serenity::all::{CreateEmbedAuthor, CreateEmbedFooter};
+use mongodb::bson::doc;
 use poise::{serenity_prelude as serenity, CreateReply};
 use serde;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use serenity::futures::TryStreamExt;
 
 pub struct Fumo {
     pub _id: String,
@@ -110,6 +112,40 @@ pub async fn random(ctx: Context<'_>) -> Result<(), Error> {
     };
     let embed = generate_fumo_embed(fumo);
     ctx.send(CreateReply::default().embed(embed)).await?;
+    Ok(())
+}
+#[poise::command(prefix_command, slash_command)]
+pub async fn push(ctx: Context<'_>) -> Result<(), Error> {
+    if !ctx.data().curators.contains(&ctx.author().id) {
+        ctx.reply("You are not a curator").await?;
+        return Ok(());
+    }
+    let fumos_collection = ctx.data().fumos_collection.clone();
+    let submissions_collection = ctx.data().submissions_collection.clone();
+
+    let mut approved_cur = submissions_collection
+        .find(doc! { "approved": true })
+        .await?;
+
+    let mut i = 0;
+
+    while let Some(submission) = approved_cur.try_next().await? {
+        i += 1;
+        let fumo = FumoDoc {
+            _id: submission._id.to_string(),
+            caption: submission.caption,
+            image_url: submission.image_url,
+            source: submission.source,
+            credit: submission.credit,
+            featured: submission.featured,
+        };
+        fumos_collection.insert_one(fumo).await?;
+        submissions_collection
+            .delete_one(doc! { "_id": submission._id })
+            .await?;
+    }
+    ctx.reply(format!("Pushed {} fumos to production database", i))
+        .await?;
     Ok(())
 }
 

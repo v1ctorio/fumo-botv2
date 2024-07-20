@@ -4,7 +4,7 @@ mod commands;
 
 use ::serenity::all::{
     ChannelId, ComponentInteraction, CreateButton, CreateInteractionResponseMessage, CreateMessage,
-    UserId,
+    Message, UserId,
 };
 use commands::Fumo;
 use dotenv::dotenv;
@@ -29,6 +29,7 @@ pub struct Data {
     submissions_collection: MongoCollection<SubmissionDoc>,
     fumo_api_endpoint: String,
     web_client: reqwest::Client,
+    curators: Vec<UserId>,
 }
 
 #[derive(Debug, poise::Modal)]
@@ -174,13 +175,29 @@ async fn event_handler(
                 let mut old_msg = component_copy.message;
                 match component.data.custom_id.as_str() {
                     "approve" => {
-                        let submission_creator_id = old_msg
-                            .referenced_message
+                        if !data.curators.contains(&component.user.id) {
+                            component
+                                .create_response(
+                                    ctx,
+                                    serenity::CreateInteractionResponse::Message(
+                                        CreateInteractionResponseMessage::new().content(
+                                            "You are not a curator, you can't approve fumos",
+                                        ),
+                                    ),
+                                )
+                                .await?;
+                            return Ok(());
+                        }
+                        let referenced = &old_msg
+                            .message_reference
                             .as_ref()
-                            .unwrap()
-                            .author
-                            .id
-                            .to_string();
+                            .expect("No referenced message in fumo submission reply")
+                            .message_id
+                            .unwrap();
+
+                        let channel = &component.channel_id;
+                        let referenced = channel.message(&ctx.http, referenced).await?;
+                        let submission_creator_id = referenced.author.id.to_string();
                         println!("{}", submission_creator_id);
                         component
                             .create_response(
@@ -188,60 +205,23 @@ async fn event_handler(
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
                                         "<@{}> Your fumo submission has been approved 🎉. You can check it out with id `{}`",
-                                        old_msg
-                                            .referenced_message
-                                            .as_ref()
-                                            .expect(
-                                                "No referenced message in fumo submission reply"
-                                            )
-                                            .author
-                                            .id
-                                            .to_string(),
-                                        old_msg
-                                            .referenced_message
-                                            .as_ref()
-                                            .expect(
-                                                "No referenced message in fumo submission reply"
-                                            )
-                                            .id
-                                            .to_string()
+                                        submission_creator_id,
+                                        referenced.id.to_string()
                                     )),
                                 ),
                             )
                             .await?;
 
-                        let fumo_to_create = Fumo {
-                            _id: old_msg
-                                .referenced_message
-                                .as_ref()
-                                .expect("No referenced message in fumo submission reply")
-                                .id
-                                .to_string(),
-                            caption: None,
-                            image: old_msg
-                                .referenced_message
-                                .as_ref()
-                                .expect("No referenced message in fumo submission reply")
-                                .attachments
-                                .first()
-                                .expect("No attachments in fumo submission reply")
-                                .url
-                                .clone(),
-                            source: None,
-                            credit: None,
-                            featured: None,
-                        };
                         #[rustfmt::skip]
-                        add_fumo_to_db(&data.fumos_collection, fumo_to_create).await.expect("Failed to add fumo to db");
+                       // add_fumo_to_db(&data.fumos_collection, fumo_to_create).await.expect("Failed to add fumo to db");
                         data.submissions_collection
                             .update_one(
                                 doc! {
                                     "_id": old_msg
-                                        .referenced_message
+                                        .message_reference
                                         .as_ref()
                                         .expect("No referenced message in fumo submission reply")
-                                        .id
-                                        .to_string()
+                                        .message_id.unwrap().to_string()
                                 },
                                 doc! {
                                     "$set": {
@@ -253,15 +233,32 @@ async fn event_handler(
                             .expect("Error while giving fumo the approved flag");
                     }
                     "reject" => {
+                        if !data.curators.contains(&component.user.id) {
+                            component
+                                .create_response(
+                                    ctx,
+                                    serenity::CreateInteractionResponse::Message(
+                                        CreateInteractionResponseMessage::new().content(
+                                            "You are not a curator, you can't approve fumos",
+                                        ),
+                                    ),
+                                )
+                                .await?;
+                            return Ok(());
+                        }
+                        let referenced = &old_msg
+                            .message_reference
+                            .as_ref()
+                            .expect("No referenced message in fumo submission reply")
+                            .message_id
+                            .unwrap();
+                        let channel = &component.channel_id;
+                        let referenced = channel.message(&ctx.http, referenced).await?;
+                        let submission_creator_id = referenced.author.id.to_string();
                         data.fumos_collection
                             .update_one(
                                 doc! {
-                                    "_id": old_msg
-                                        .referenced_message
-                                        .as_ref()
-                                        .expect("No referenced message in fumo submission reply")
-                                        .id
-                                        .to_string()
+                                    "_id": referenced.id.to_string()
                                 },
                                 doc! {
                                     "$set": {
@@ -277,15 +274,7 @@ async fn event_handler(
                                 serenity::CreateInteractionResponse::Message(
                                     CreateInteractionResponseMessage::new().content(format!(
                                         "<@{}> Your fumo submission has been denied 😟.",
-                                        old_msg
-                                            .referenced_message
-                                            .as_ref()
-                                            .expect(
-                                                "No referenced message in fumo submission reply"
-                                            )
-                                            .author
-                                            .id
-                                            .to_string()
+                                        referenced.author.id.to_string()
                                     )),
                                 ),
                             )
@@ -413,6 +402,7 @@ async fn main() {
                     submissions_collection,
                     web_client,
                     fumo_api_endpoint,
+                    curators: vec![UserId::from(688476559019212805)],
                 })
             })
         })
